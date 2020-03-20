@@ -1,8 +1,10 @@
 /*!
- * @file Adafruit_MPL3115A2.h
+ * @file MPL3115A2.h
  *
- * This is part of Adafruit's MPL3115A2 driver for the Arduino platform.  It is
- * designed specifically to work with the Adafruit MPL3115A2 breakout:
+ * This version of the adafruit library for the MPL3115A2 breakout has been
+ * rewritten for the xmegas256A3U by:
+ * Joris Bruinsma
+ * It is designed specifically to work with the Adafruit MPL3115A2 breakout:
  * https://www.adafruit.com/products/1893
  *
  * These sensors use I2C to communicate, 2 pins (SCL+SDA) are required
@@ -97,11 +99,9 @@ enum {
 };
 
 /*!
- *  @brief  Class that stores state and functions for interacting with MPL3115A2
+ *  @brief  Struct that stores state for interacting with MPL3115A2
  * altimeter
  */
-
-
 typedef struct MPL3115A2_t{
 	uint8_t mode;
 	TWI_t *twi;

@@ -38,73 +38,47 @@
 #include "i2c.h"
 #include "MPL3115A2.h"
 
+static void write8(TWI_t *twi, uint8_t a, uint8_t d);
+static uint8_t read8(TWI_t *twi, uint8_t a);
+
 bool MPL3115A2_begin(TWI_t *twi, MPL3115A2 *s){
 	s->twi = twi;
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_WHOAMI);
-	i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-	uint8_t whoami = i2c_read(s->twi, I2C_NACK);
+	uint8_t whoami = read8(twi, MPL3115A2_WHOAMI);
 	i2c_stop(s->twi);
 	if(whoami != 0xC4){
 		return false;
 	}
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1_RST);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, MPL3115A2_CTRL_REG1_RST);
 	_delay_ms(10);
 	
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-	while(i2c_read(s->twi, I2C_NACK) & MPL3115A2_CTRL_REG1_RST)
-	i2c_stop(s->twi);
+	while(read8(s->twi, MPL3115A2_CTRL_REG1) & MPL3115A2_CTRL_REG1_RST)
 	_delay_ms(10);
 
 	s->_ctrl_reg1.reg = MPL3115A2_CTRL_REG1_OS128 | MPL3115A2_CTRL_REG1_ALT;
 	
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, s->_ctrl_reg1.reg);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, s->_ctrl_reg1.reg);
 
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_PT_DATA_CFG);
-	i2c_write(s->twi, MPL3115A2_PT_DATA_CFG_TDEFE |
+	write8(s->twi, MPL3115A2_PT_DATA_CFG, MPL3115A2_PT_DATA_CFG_TDEFE |
 	MPL3115A2_PT_DATA_CFG_PDEFE |
 	MPL3115A2_PT_DATA_CFG_DREM);
-	i2c_stop(s->twi);
 	
 	return true;
 }
 
 float MPL3115A2_getPressure(MPL3115A2 *s) {
 	uint32_t pressure;
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-	while (i2c_read(s->twi, I2C_NACK) & MPL3115A2_CTRL_REG1_OST)
+	while (read8(s->twi, MPL3115A2_CTRL_REG1) & MPL3115A2_CTRL_REG1_OST)
 	_delay_ms(10);
-	i2c_stop(s->twi);
+	
 	s->_ctrl_reg1.bit.ALT = 0;
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, s->_ctrl_reg1.reg);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, s->_ctrl_reg1.reg);
 	
 	s->_ctrl_reg1.bit.OST = 1;
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, s->_ctrl_reg1.reg);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, s->_ctrl_reg1.reg);
 
 	uint8_t sta = 0;
 	while (!(sta & MPL3115A2_REGISTER_STATUS_PDR)) {
-		i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-		i2c_write(s->twi, MPL3115A2_REGISTER_STATUS);
-		i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-		sta = i2c_read(s->twi, I2C_NACK);
-		i2c_stop(s->twi);
+		sta = read8(s->twi, MPL3115A2_REGISTER_STATUS);
 		_delay_ms(10);
 	}
 	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
@@ -129,33 +103,18 @@ float MPL3115A2_getPressure(MPL3115A2 *s) {
 float MPL3115A2_getAltitude(MPL3115A2 *s) {
 	int32_t alt;
 	
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-	while (i2c_read(s->twi, I2C_NACK) & MPL3115A2_CTRL_REG1_OST)
+	while (read8(s->twi, MPL3115A2_CTRL_REG1) & MPL3115A2_CTRL_REG1_OST)
     _delay_ms(10);
-	i2c_stop(s->twi);
 
 	s->_ctrl_reg1.bit.ALT = 1;
-	
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, s->_ctrl_reg1.reg);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, s->_ctrl_reg1.reg);
 	
 	s->_ctrl_reg1.bit.OST = 1;
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, s->_ctrl_reg1.reg);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, s->_ctrl_reg1.reg);
 
 	uint8_t sta = 0;
 	while (!(sta & MPL3115A2_REGISTER_STATUS_PDR)) {
-		i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-		i2c_write(s->twi, MPL3115A2_REGISTER_STATUS);
-		i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-		sta = i2c_read(s->twi, I2C_NACK);
-		i2c_stop(s->twi);
+		sta = read8(s->twi, MPL3115A2_REGISTER_STATUS);
 		_delay_ms(10);
 	}
 	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
@@ -192,19 +151,11 @@ float MPL3115A2_getTemperature(MPL3115A2 *s) {
 	 int16_t t;	
   	
 	 s->_ctrl_reg1.bit.OST = 1;
-	
-	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-	i2c_write(s->twi, MPL3115A2_CTRL_REG1);
-	i2c_write(s->twi, s->_ctrl_reg1.reg);
-	i2c_stop(s->twi);
+	write8(s->twi, MPL3115A2_CTRL_REG1, s->_ctrl_reg1.reg);
 
 	uint8_t sta = 0;
 	while (!(sta & MPL3115A2_REGISTER_STATUS_TDR)) {
-		i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
-		i2c_write(s->twi, MPL3115A2_REGISTER_STATUS);
-		i2c_restart(s->twi, MPL3115A2_ADDRESS, I2C_READ);
-		sta = i2c_read(s->twi, I2C_NACK);
-		i2c_stop(s->twi);
+		sta = read8(s->twi, MPL3115A2_REGISTER_STATUS);
 		_delay_ms(10);
 	}
 	i2c_start(s->twi, MPL3115A2_ADDRESS, I2C_WRITE);
@@ -225,6 +176,32 @@ float MPL3115A2_getTemperature(MPL3115A2 *s) {
 	return temp;
 }
 
+/*!
+ *  @brief  read 1 byte of data at the specified address
+ *  @param  a 
+ *          the address to read
+ *  @return the read data byte
+ */
+static uint8_t read8(TWI_t *twi, uint8_t a) {
+	uint8_t res = 0;
+	i2c_start(twi, MPL3115A2_ADDRESS, I2C_WRITE);
+	i2c_write(twi, a);
+	i2c_restart(twi, MPL3115A2_ADDRESS, I2C_READ);
+	res = i2c_read(twi, I2C_NACK);
+	i2c_stop(twi);
+	return res;
+}
 
-
-
+/*!
+ *  @brief  write a byte of data to the specified address
+ *  @param  a 
+ *          the address to write to
+ *  @param  d 
+ *          the byte to write
+ */
+static void write8(TWI_t *twi, uint8_t a, uint8_t d) {
+	i2c_start(twi, MPL3115A2_ADDRESS, I2C_WRITE);
+	i2c_write(twi, a);
+	i2c_write(twi, d);
+	i2c_stop(twi);
+}
